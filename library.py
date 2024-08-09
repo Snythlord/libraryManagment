@@ -1,5 +1,6 @@
 from datetime import *
 from user import User
+from collections import defaultdict
 
 class Library():
     def __init__(self, name):
@@ -8,6 +9,9 @@ class Library():
         self.members = {}
         self.users = {}
         self.logged_in_user = None
+        self.penalties = defaultdict[int]
+        self.popular_books = defaultdict[float]
+
     def add_new_books(self, book):
         if self.logged_in_user and self.logged_in_user.role == 'Librarian':
                      
@@ -76,6 +80,7 @@ class Library():
                 book.checked_out_by = member_id
                 book.due_date = datetime.now() + timedelta(days=checkout_days)
                 self.get_member(member_id).borrowing_history.append(book.title)
+                self.popular_books[book.title] += 1
                 print(f"The book {book.title} has been checked out by {member_id}. Due date is {book.due_date}.")
                 return
         print("Book not found")
@@ -84,6 +89,11 @@ class Library():
         for book in self.books:
             if book.isbn == isbn:
                 if book.check_out_by == member_id:
+                    if book.due_date and book.due_date < datetime.now():
+                        days_overdue = (datetime.now() - book.due_date).days
+                        self.penalties[member_id] += days_overdue * 1.0
+                        print(f"Penaltie applied: ${days_overdue *1.0} for {days_overdue} overdue days. ")
+
                     book.check_out_book = None
                     book.due_date = None
                     print(f"The book {book.title} has been returned by {member_id}.")
@@ -118,6 +128,30 @@ class Library():
     def filter_books_by_availability(self, available = True):
         return (book for book in self.books.values() if book.is_checked_out != available)
         
+    def reccomend_books(self, member_id):
+        member = self.get_member(member_id)
+        borrowed_genres = defaultdict(int)
+
+        for title in member.borrowing_history:
+            for book in self.books:
+                if book.title == title:
+                    borrowed_genres[book.genre] +=
+
+        if not borrowed_genres:
+            print("No reccomendations available. The member has not borrowed any books yet.")
+            return
+        
+        favorite_genre = max(borrowed_genres, key=borrowed_genres.get)
+        recommendations = [book for book in self.books if book.genre == favorite_genre and  not book.checked_out_by]
+
+        if recommendations:
+            print(f"Reccomendation for member {member_id} based on favorite genre {favorite_genre}: ")
+            for book in recommendations:
+                print(book)
+
+        else:
+            print(f"No available books to recommend in the genre { favorite_genre}.")
+
     def log_operation(self, operation):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_entry = f"{timestamp} - {operation}\n"
@@ -161,6 +195,25 @@ class Library():
             if member.member_id == member_id:
                 return member
         return None
+
+    def get_user(self, username):
+        for user in self.users:
+            if user.username == username:
+                return user
+        return None
+    
+    def get_book(self, isbn):
+        for book in self.books:
+            if book.isbn == isbn:
+                return book
+        return None
+    
+    def get_all_members(self):
+        return self.members
+    
+    def get_all_users(self):
+        return self.users
+    
 
     
     def __str__(self):
